@@ -1,0 +1,519 @@
+---
+output: html_document
+---
+R plots by Pawel Mrozowski
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+
+library(ggplot2)
+library(knitr)
+library(gridExtra)
+library(dplyr)
+library(reshape)
+library(GGally)
+```
+
+```{r echo=FALSE, Load_the_Data}
+pf <- read.csv("d:/nanodegree/PR3/projekt/cell.csv" ,header = T, row.names=1)
+pf2 <- read.csv("d:/nanodegree/PR3/projekt/cell.csv" )
+pf3 <- read.csv("d:/nanodegree/PR3/projekt/cell3b.csv" ,header = T)
+pf4 <- read.csv("d:/nanodegree/PR3/projekt/cell3b.csv" )
+
+pf3$GDP2011int<-as.double(pf3$GDP_2011)
+pf4$GDP2011int<-as.double(pf4$GDP_2011)
+
+```
+
+
+
+#Overview
+This data set contains informations abut cell phones quantity all over the world in last 54 years.
+First thing to do is to list the dataset. Structure is very simple: column of countries and years from 1965 to 2011.
+
+```{r echo=FALSE}
+summary(pf)
+
+head(pf)
+```
+
+We can see that many data cells are actually without data, so we must exclude them in our analysis. (or we can try to clean them in some way, like zeroing)
+We are analysing how the quantity of cell phones changes over past 46 days all over the world.  
+
+Before we begin I want to plot the summary data in relation to years in out dataset. (y is logarithmic scale)
+
+
+```{r echo=FALSE,warning=FALSE}
+newdataTop10=pf2[order(pf2$X2011,decreasing=T)[0:15],]
+
+ggplot() +
+geom_boxplot(aes(x = c(2011),y=X2011),data =(newdataTop10 ),fill="red")+
+geom_boxplot(aes(x = c(2010),y=X2010),data =(newdataTop10 ),fill="yellow")+
+geom_boxplot(aes(x = c(2009),y=X2009),data =(newdataTop10 ),fill="green")+
+geom_boxplot(aes(x = c(2008),y=X2008),data =(newdataTop10 ),fill="blue")+
+geom_boxplot(aes(x = c(2008),y=X2008),data =(newdataTop10 ),fill="black")+
+  geom_boxplot(aes(x = c(2007),y=X2007),data =(newdataTop10 ),fill="pink")+
+  geom_boxplot(aes(x = c(2006),y=X2006),data =(newdataTop10 ),fill="white")+
+  geom_boxplot(aes(x = c(2005),y=X2005),data =(newdataTop10 ),fill="coral")+
+  geom_boxplot(aes(x = c(2004),y=X2004),data =(newdataTop10 ),fill="beige")+
+  geom_boxplot(aes(x = c(2003),y=X2003),data =(newdataTop10 ),fill="aquamarine2")+
+  geom_boxplot(aes(x = c(2002),y=X2002),data =(newdataTop10 ),fill="aliceblue")+
+  geom_boxplot(aes(x = c(2001),y=X2001),data =(newdataTop10 ),fill="brown1")+
+  geom_boxplot(aes(x = c(2000),y=X2000),data =(newdataTop10 ),fill="darkgoldenrod1")+
+xlab('years') +
+ylab('summary') +  
+ggtitle('Overall summary of dataset from 2000 to 2011')+
+scale_y_log10()+ scale_x_continuous("years", limits=c(1999,2012), breaks=2000:2011)
+  
+
+```
+
+We can that the cell quantity in following years is increasing and that the spread between lower and upper limit is getting smaller. Also the average value is stabilizing. 
+
+
+
+# Univariate Analysis
+Firstly I want to visualize few years taken arbitrary, if there is some kind of a trend all over the world in cell quantity.
+I take year 1980 (that is actually the start of Centertell in scandinavian countries) and 20 years after.
+
+ 
+
+Firstly we try to take a look on quantity of phones in top 5 countries in year 1980. 
+
+```{r echo=FALSE,warning=FALSE}
+newdata=pf2[order(pf2$X1980,decreasing=T)[0:5],]
+ 
+
+ggplot(aes(x = Mobile.cellular.subscriptions..total.number,y=X1980),
+       data =newdata ) +
+    geom_bar(stat="identity", fill="gold",color="black")+
+  xlab("countries")+
+  ylab("quantity")
+```
+
+
+
+So we have confirmation that in fact the only country in the dataset that had cell phones was Finland.
+
+
+We move to year 2010 and do some visualization. Having value points for year 2010 we want to show average value for year 2010 on the plot . First we calculate the average values for year 2010.
+```{r echo=FALSE}
+avgYears<-colSums(pf,na.rm = T)/275
+```
+
+then we choose proper column tht ocntains year 2010
+```{r echo=FALSE}
+avgYears[46]
+```
+Now we add this as layer to plot and 
+
+```{r echo=FALSE,warning=FALSE}
+newdataall=pf2[order(pf2$X2010,decreasing=T)[0:10],]
+
+ggplot(aes(x = Mobile.cellular.subscriptions..total.number,y=X2011),
+data =newdataall ) +
+geom_bar(stat="identity", fill="darkolivegreen1",color="black")+
+xlab("countries")+
+ylab("quantity")+
+geom_hline( y=avgYears[46], colour="red") + 
+ggtitle('Top 10 countries in 2011 (cell qty)')+
+annotate("text", x = 9, y = -1e+08, label = "average cell qty.",color="red")
+
+```
+
+
+
+
+Now last thing we want to know is how many countries have quantity above average.
+We can see that most of countries in our db is below an average, but some of them (the biggest one like USA and China) significanly imcrease overall statistics.
+
+# Bivariate Analysis
+Here we begin bivariate analysis. The structure of dataset is simple. From one side we have Countries, from the other we have rows/columns with cell phone quantities since 1965 till 2011 as separated values.
+So actually to begin analysis we must create some new variables like average/total amount by binding some data.We are going to compare overall data set characteristics with my country Poland.
+
+We want to answer a few questions:
+1- how the total amount of phones changed over time
+2- how the total amount of phones changed in Poland and compare it with global analysis
+3- how is the relation between world trend to my country's trend
+
+
+
+Since the data is in separated columns we must build two variables: years and total
+
+
+```{r echo=FALSE}
+Total <- colSums(pf, na.rm=T)
+Average <- colSums(pf,na.rm = T)/275
+axisY <- as.data.frame(cbind(Total,Average))
+axisY$Year <- as.numeric(substr(rownames(axisY),start=2,stop=5))
+ggplot(aes(x=Year,y=Total),data=axisY)+ geom_point()+xlim(1965,2011)
+```
+
+
+Now we can narrow this growth to one country, e.g. Poland and compare this with total value for all dataset.
+
+```{r echo=FALSE}
+pft<-as.data.frame(t(pf))
+PolandRow <- pf[rownames(pf)=='Poland',]
+GermanyRow <- pf[rownames(pf)=='Germany',]
+Year <- as.numeric(substr(rownames(axisY),start=2,stop=5))
+TotalPoland <-colSums(pft, na.rm=T)
+#TotalPoland["Poland"]
+AveragePoland <- colMeans(pft, na.rm=T)
+#AveragePoland["Poland"]
+```
+
+Now let's visualize cell quantity in Poland using linear scale. 
+```{r echo=FALSE}
+ggplot(aes(x=Year,y=Poland),data=pft) + geom_line(color='blue') +
+xlim(1965,2011) +
+xlab('year') +
+ylab('quantity') + 
+ggtitle('Cell quantity in Poland from 1965 to 2011')
+```
+
+We can see that significant increase occured in 1995 till 2005.
+ 
+To see it better the dynamics and since the values increase very fast we tried to change the scale on y-axis to be logarithmic.   
+```{r echo=FALSE}
+ggplot(aes(x=Year,y=Poland),data=pft) + geom_line(color='blue') +
+geom_line(color='blue') + xlim(1965,2011) +
+xlab('year') +  ylab('quantity') + 
+ggtitle('Cell quantity in Poland from 1965 to 2011') +
+scale_y_log10()
+```
+
+We can now compare both values and avarage in the world: plots on one graph to see how Poland is related to overall total number
+
+```{r echo=FALSE}
+p1<-ggplot(aes(x=Year,y=Total),data=axisY) + geom_line(color='blue') +
+xlim(1965,2011) + ylab("Total world's cell qty.  ") 
+
+p3<-ggplot(aes(x=Year,y=Average),data=axisY) + geom_line(color='green') +
+xlim(1965,2011) + ylab("Average world's cell qty.") 
+
+p2<-ggplot(aes(x=Year,y=Poland),data=pft) + geom_line(color='red') +
+xlim(1965,2011) + ylab("Total Poland's cell qty.") 
+
+grid.arrange(p1,p2,p3,ncol=1)
+```
+
+We can see that the shape is different and the increase of phones  tends to slow down from 2008 and 2009 .  We have used logarithmic scale on y-axis, to show the difference between the plos in higher values. On linear scale we would'n notice the overall trend, except different values on Y asix.
+
+```{r echo=FALSE}
+p1<-ggplot(aes(x=Year,y=Total),data=axisY) + geom_line(color='blue') +
+xlim(1965,2011) + 
+ylab("Total cell qty. world") 
+
+p3<-ggplot(aes(x=Year,y=Average),data=axisY) + geom_line(color='green') +
+xlim(1965,2011) +  
+ylab("Average cell qty. world") 
+
+
+p2<-ggplot(aes(x=Year,y=Poland),data=pft)+   geom_line(color='red') +
+xlim(1965,2011)+ 
+ylab("Total cell qty. Poland") 
+
+grid.arrange(p1,p2,p3,ncol=1)
+```
+ 
+
+We can see that the shape of function is similar but is relatively x times less (obvious) but also started about 10 years after world's trend, which is justified taking into account the political aspect of Poland. Year 1989 is actually the fists year of capitalism and end of communism, so country coud benefit from hith tech that was forbidden before.  
+
+Now I want to compare Poland's ratio (relation of choosen year's cell quantity to previous year) in increase in last 5 years vs our neighbour.   This can help to understand in Polish market is actually growing fast .
+
+
+Let's calculate ratios (cell quantity of choosen year in relation to previous year):
+
+```{r echo=FALSE,warning=FALSE}
+ratiosDF<-as.data.frame(pf$X2006/pf$X2005)
+
+ratiosDF$ratio2001to2000<-pf$X2001/pf$X2000
+ratiosDF$ratio2002to2001<-pf$X2002/pf$X2001
+ratiosDF$ratio2003to2002<-pf$X2003/pf$X2002
+ratiosDF$ratio2004to2003<-pf$X2004/pf$X2003
+ratiosDF$ratio2005to2004<-pf$X2005/pf$X2004
+ratiosDF$ratio2006to2005<-pf$X2006/pf$X2005
+ratiosDF$ratio2007to2006<-pf$X2007/pf$X2006
+ratiosDF$ratio2008to2007<-pf$X2008/pf$X2007
+ratiosDF$ratio2009to2008<-pf$X2009/pf$X2008
+ratiosDF$ratio2010to2009<-pf$X2010/pf$X2009
+ratiosDF$ratio2011to2010<-pf$X2011/pf$X2010
+ratiosDF$ratio2011to2010tablets<-pf3$tablets_sell_2011/pf3$tablets_sell_2010
+ratiosDF$ratio2010to2009tablets<-pf3$tablets_sell_2010/pf3$tablets_sell_2009
+ratiosDFT<-as.data.frame(t(ratiosDF))
+
+
+ 
+ 
+```
+
+
+
+Now we can plot the change of ratios in Poland (first we will add X axis to make our plots easier and cleaner).
+
+```{r echo=FALSE,warning=FALSE}
+ratiosDFT$id<-c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,1,2)
+
+ratiosDFT["V179"]
+
+ggplot(aes(x=id),data =ratiosDFT) +
+geom_point(aes(y=V179),color="black",size=4) + 
+geom_line(aes(y=V179),color="green",size=2) +
+ylab("ratio") +
+xlab("years") +
+ggtitle("ratios in Poland in last 11 years") + xlim(2000,2011)
+
+```
+
+We can see that ratio (relation of current quantity to previous year's quantity) of phones each year decreases almost to 1, so we see that the market is stabilizing and becomes full.  
+
+let's do the same with Germany  and try to find some correlation:
+```{r echo=FALSE,warning=FALSE}
+ratiosDFT["V81"]
+ggplot(aes(x=id),data =ratiosDFT) + geom_line(aes(y=V82),color="red",size=2
+) +
+ylab("ratio") +
+ggtitle("ratios in Germany of cell quantity in relation to previous year")+
+xlim(2000,2011) 
+```
+
+ 
+
+But how is the relation between those two:
+```{r echo=FALSE,warning=FALSE}
+ggplot(aes(x=id),data =ratiosDFT) +
+geom_point(aes(y=V81),color="red", shape=2) +
+geom_line(aes(y=V179),color="green",size=2) +
+ylab("ratio") +
+ggtitle("ratios Poland (green) vs Germany (red)") +
+scale_x_continuous("years", limits=c(2000,2011), breaks=2000:2011)+
+ylim(0.8,2)
+```
+
+We can see that in Germany like in Poland was some stagnation in 2008. We can see that finally Polish market has tendence to grow faster in 2011.
+
+
+Finally we want to see the relation of ratios from 2000 to 2011 for all countries in the dataset. This gives an overview how previous ratio (year before) is related to the ratio in next year , if tendency is generally dropping or rising as a reaction to overall marked need.
+
+```{r echo=FALSE,warning=FALSE}
+p10<-ggplot(aes(x=ratio2010to2009),data =ratiosDF) +
+geom_line(aes(y=ratio2011to2010),color="red",size=1)
+
+p12<-ggplot(aes(x=ratio2008to2007),data =ratiosDF) +
+geom_line(aes(y=ratio2009to2008),color="blue",size=1)
+
+p13<-ggplot(aes(x=ratio2007to2006),data =ratiosDF) +
+geom_line(aes(y=ratio2008to2007),color="black",size=1)
+
+p14<-ggplot(aes(x=pf$X2006/pf$X2005),data =ratiosDF) +
+geom_line(aes(y=ratio2007to2006),color="yellow",size=1) +
+xlab("ratio2006to2005")
+
+grid.arrange(p10,p12,p13,p14,ncol=2)
+```
+
+The shape of functions can be very different.   All is related to global market trends, growths and market collapses. 
+Taking a look at the plots, for example, on comparison of cell phone quantity ratios from 2008/2007 to 2009/2008 we can see a big spike. This is our exception (Kiribati) where ratio from about 1.4 has spiked to 9.9. Overall we observe steady growth. The same analysis relates to other trhee sub - plots.  
+
+From here we can try to find out the ratio trends related to new technologies available like incorporation of 3G networks or any other global market events (related to globalization). To be more precisely we would need to have better dataset. 
+
+#Multivariate
+In this section we want to make similar analysis like in bivariate secion, but in relation to tables quantity sold in 2009/2010/2011.
+
+Having some data (added manually with some randomness) about tablets in the last 3 years, we want to answer question like:
+
+- what is the relationship between cell quantity ratios 2011/2010 and it's relation to tablets ratio 2011/2010  
+
+
+Let's assume (based on added data) that the general trend is increasing.
+
+
+
+We want to show some relation (based on top 10 mentioned in one of first plots of the report) between cell phone quantity and tablets (2011).
+
+On the plot we can see cells quantity (dots) and tablets quantity (bars). The size of dots shows cell quantity, bars represent tablets quantity in 2011. the ratio of growth/drop of tablet quantity between 2011 and 2010.
+
+```{r echo=FALSE,warning=FALSE}
+newdataalltablets=pf3[order(pf3$tablets_sell_2011,decreasing=T)[0:10],]
+
+ggplot(aes(x = Mobile.cellular.subscriptions..total.number,y=X2011),
+       data =newdataalltablets) +
+geom_point(size=newdataalltablets$X2011/newdataalltablets$X2010*10)+
+xlab("countries")+
+ylab("quantity")+
+geom_bar(stat="identity", fill="deepskyblue2",color="black",
+         aes(y=tablets_sell_2011 ))+
+ggtitle('Cell qty.in top ten countries 2011 vs. tables qty. in 2011')+
+scale_y_log10()+
+annotate("text", x = 5, y = 1e+02, label =  "tablets qty. 2011",
+         color="dodgerblue4",fontface="italic",size=15)+
+annotate("text", x = 5, y = 1e+09, label ="cells qty. 2011",color="black",                                                                                                                                        fontface="italic",size=5)
+```
+
+Since tablets quantity are relativelly smaller (about 1% of cell) we had to use logarithmic scale to show the smallest values in details. The dots also had to be scaled up to notice small size-diffrences.
+
+
+ 
+
+
+
+Now let's ask, how is the relation between population, cell quantity in 2011 considering top 10 countries in the world in respect to cell qty. in 2011.
+
+
+```{r echo=FALSE,warning=FALSE}
+newdatapop=pf3[order(pf3$X2011,decreasing=T)[0:10],]
+
+
+newdatapop$Mobile.cellular.subscriptions..total.number=
+factor(newdatapop$Mobile.cellular.subscriptions..total.number,
+levels=newdatapop$Mobile.cellular.subscriptions..total.number[order(newdatapop$X2011)])
+
+ggplot(newdatapop,aes(x = Mobile.cellular.subscriptions..total.number,
+                      y=newdatapop$X2011,fill=newdatapop$population2011)) +
+    geom_bar(stat="identity")+xlab('Countries')+
+    ylab('cell quantity')+
+    ggtitle('Cell qty. in top 10 countries in 2011 vs. population in 2011')
+```
+
+
+
+Finally let's ask question, how this the relation of cell quantity (in 2011) vs. GDP(2011). To compare it with previous plot the order of cell qty. is the same.
+
+
+```{r echo=FALSE,warning=FALSE}
+newdatapop=pf3[order(pf3$GDP2011int,decreasing=T)[0:10],]
+
+newdatapop$Mobile.cellular.subscriptions..total.number=factor(
+newdatapop$Mobile.cellular.subscriptions..total.number,
+levels=newdatapop$Mobile.cellular.subscriptions..total.number[order(newdatapop$X2011)])
+
+ggplot(newdatapop,aes(x = Mobile.cellular.subscriptions..total.number,
+                      y=newdatapop$X2011,fill=GDP2011int)) +
+    geom_bar(stat="identity")+xlab('Countries')+
+    ylab('cell quantity')+
+    ggtitle('Cell qty. in top 10 countries in 2011 vs. GDP in 2011')
+```
+
+What is surprising that the bigger GDT, the more cells should be noted, but on the chart  we can see some of the biggest GTD producers are in fact below countries like China or India, where cell qty. is a lot bigger.
+
+
+# Final Plots and Summary
+### Plot One
+
+```{r echo=FALSE,warning=FALSE}
+p4<- ggplot(aes(x=Year),data=axisY) + geom_line(aes(y=Total),colour="green") +
+  geom_point(aes(y=Average),colour="red") + xlim(1980,2011) +
+  ggtitle('Total and Average per Year of Cell Phone Owned in the world') +
+  ylab("Quantity") + xlab("Year") +scale_y_log10() +
+  annotate("text", x = 2005, y = 1e+06, label = "average",color="red") + 
+  annotate("text", x = 2005, y = 1e+09, label = "total",color="green")
+
+p5<-ggplot(aes(x=Year,y=Poland),data=pft) + geom_line(colour="black") + 
+  geom_hline(y=AveragePoland["Poland"] ,colour="red") +
+  xlim(1980,2011) +
+  ggtitle('Total and Avg. quantity per Year of Cell Phone Owned in Poland') +
+  ylab("Quantity") + xlab("Year") + scale_y_log10() + 
+  annotate("text", x = 2005, y = 1e+01, label = "average",color="red") +
+  annotate("text", x = 2005, y = 1e+08, label = "quantity",color="black")
+
+grid.arrange(p4,p5)
+```
+
+### Description One
+First plot's task is to show relation of Average and Total amount of cell phones in the world related to Poland : average and total quantityin the world. What was the most importand finding on the top plot is that in fact the year 1980 was the first one when first cell phones appeared as a technology. Since then we can see the steady growth (but we must remebmer this is logarithmic scale). On the other hand we depicted the same values for Poland, since our question was, if the growth of cells in Poland looks the same or different. We have also confirmed that western technology was not available in Poland because of communism and that the revolution of mobile phones began actually 10 years after.
+
+
+### Plot Two
+
+```{r echo=FALSE,warning=FALSE}
+pf3<-transform(pf3,ratio=pf3$X2011/pf3$X2010)
+ 
+ggplot(pf3,aes(x = pf3$ratio) )+
+geom_histogram(binwidth = 0.01) + 
+ggtitle('Ratio of cell qty. in 2011 vs. qty. in 2010 (all the world). ') +
+ylab("ratio indicator distribution") + xlab("Ratio")
+```
+
+
+### Description Two
+Having analysed the ratio of cells between years 2005 and 2011 we could see that relation was very different. We were not able to determine the distribution of the data (ratios). 
+To answer this we had to use histogram-type plot. As example we took the ratio of cells in 2011 to cells in 2010 for all world. WE can see rather normal distribution. In the year 2011 most of countries in the world increases the quantity of cells by 5-10 %, so we see tendency to increse ,but there are also some exceptions, with ration below 0.5 or more than 2.5. In relation to this one example one can create more thorough analysis of the ratio, for all data set, and compare histograms.
+
+### Plot Three
+```{r echo=FALSE,warning=FALSE,Plot_Three}
+pratio<-ggplot(ratiosDFT,aes(x=id)) +
+geom_line(aes(y=V179),color="brown2",size=2) +
+ylab("ratio") +
+xlab("year") +
+ggtitle("Ratio of cell qty. in Poland and Germany from 2000 to 2011") +
+scale_x_continuous("years", limits=c(2000,2011), breaks=2000:2011)+
+geom_line(aes(y=V81),color="chartreuse4",size=1)+
+ylim(1,2)+
+annotate("text", x = 2010, y = 1.2, label = "Poland",color="brown2",
+fontface="italic",size=5) + 
+annotate("text", x = 2010, y = 1.5, label =  "Germany",color="chartreuse4",
+fontface="italic",size=5)
+ 
+preal<-ggplot(aes(x=Year),data=pft) +  geom_line(aes(y=pft$Poland),color='brown2',linetype="dashed") +
+geom_line(aes(y=Germany), color='chartreuse4', linetype="dashed")+
+xlab('year') +
+ylab('quantity') + 
+ggtitle('Cell quantity in Poland and Germany from 2000 to 2011')+
+scale_x_continuous("years", limits=c(2000,2011), breaks=2000:2011)
+qtyPoltoGer<-pft$Poland/pft$Germany
+
+pqtyInrelation<-ggplot(aes(x=Year),data=pft) +  geom_line(aes(y=qtyPoltoGer),
+                                                          color='black') +
+xlab('year') +
+ylab('quantity') + 
+ggtitle('Cell quantity ratio between Poland and Germany from 2000 to 2011')+
+scale_x_continuous("years", limits=c(2000,2011), breaks=2000:2011)
+
+grid.arrange(pratio,preal,pqtyInrelation)
+```
+
+
+
+### Description Three
+The final plot (3 sections) we will explore relation between two countries by taking into consideration three indicators:  "ratio" indicator, that can show us what was the country/world reaction to the cell phones market over time, quantity and quantity ratio.
+The example analyses Poland and it's neighbour Germany. 
+
+We can see mamy interesting events like:
+
+-ratio in Poland was generally  below Germanm so the growth German market was faster, but in 2004 Poland experienced better growth
+
+
+-both countries experience bessa between 2007 and 2008
+
+-there are three big ratio spikes fir germany, that can indicate some market trends, worth to investigate,  
+
+-finally all tends to go to 1, since the market seems to be full for cells,
+
+ 
+
+
+# Reflection
+By anlysing the data we can see the very beginning of cellular telephony in 80' growing steadily with a boom in late 90' and in the next decade. Poland was 10 years behind world's trend until 1989 . Today Poland is actually the leader of LTE technology in Europe by having the most users and signal coverage with this technology and all of this came from relatively fast saturation of market and push for new technology. http://point-topic.com/free-analysis/mapping-broadband-coverage-in-poland/
+
+First difficulty I had was related to the data itself. I had to create csv file with header and  import it properly to R. If integer value was to big, R studio changed data type to character, which poses a problem. This had to be reconverted to double type.  Structure shows that this is actually a spreadsheet of values. The relation before the data seems to be none or limited. In order to begin finding patterns the data had to be groupped together, visualized as a combination of features, not features alone. Since the dataset has actually rather simple structure, some of the characteristics has to be obtained by combining the data together. Finally to create more interesting analysis some of the data had to be added.
+
+The last plot can be a great starting point for more thorough analyse.
+This type of plot was chosen because it is easy to read and can show not only main dependency between ratios but also a spread of values in relation one to another. It is also not obvious to interpret since growing values do not necessary mean increase/decrease of cell phones in the world or chosen country. This can help to identify some trends. Generally speaking the markets start to become saturated and that producers must change strategy to sell more by offering new services available only to modern smartphones or better prices to users, so they are willing to change old phone even if they do not need because it is still working, or maybe focus on diffenert devices like phablets and/or mobile tablet-laptop-phone.
+
+# Resources
+R CookBook
+
+http://www.cookbook-r.com
+
+http://www3.nd.edu/~steve/computing_with_data/11_geom_examples/ggplot_examples.html
+
+http://www.ademcan.net
+
+http://www.cookbook-r.com/Graphs/Axes_%28ggplot2%29/
+
+http://www.r-bloggers.com/ggplot2-tutorial/
+
+http://ggplot2.org/book/qplot.pdf
+
+http://docs.ggplot2.org/0.9.3/annotate.html
